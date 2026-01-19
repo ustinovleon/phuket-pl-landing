@@ -7,7 +7,6 @@ import { LogOut, Trash2, Eye, EyeOff, Settings, Users, Plus, Pencil, AlertCircle
 export default function AdminPage() {
   const { user, logout, login, properties, leads, addProperty, updateProperty, deleteProperty, error } = useData();
   
-  // --- ИСПРАВЛЕНИЕ: Все хуки теперь в начале компонента ---
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -16,8 +15,6 @@ export default function AdminPage() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
   const [formError, setFormError] = useState('');
-  
-  // Перенесено сюда (раньше было внизу и вызывало ошибку):
   const [isSaving, setIsSaving] = useState(false);
 
   const emptyDraft = useMemo(() => ({
@@ -32,6 +29,9 @@ export default function AdminPage() {
     priceFromTHB: 0,
     priceFromEUR: 0,
     highlightsText: '',
+    highlightsPlText: '',
+    descriptionPl: '',
+    operatorModelPl: '',
     imagesText: '',
     isPublished: false,
     order: 0,
@@ -47,7 +47,7 @@ export default function AdminPage() {
       await login(loginEmail, loginPassword);
     } catch (error: any) {
       console.error('Login error:', error);
-      setLoginError(error.message || 'Login fehlgeschlagen');
+      setLoginError(error.message || 'Logowanie nie powiodło się');
     } finally {
       setIsSubmitting(false);
     }
@@ -61,13 +61,13 @@ export default function AdminPage() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h1 className="font-display text-xl text-slate-900 mb-2">Fehler</h1>
+          <h1 className="font-display text-xl text-slate-900 mb-2">Błąd</h1>
           <p className="text-slate-600 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="btn-primary"
           >
-            Seite neu laden
+            Odśwież stronę
           </button>
         </div>
       </div>
@@ -82,7 +82,7 @@ export default function AdminPage() {
             <div className="w-16 h-16 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <span className="text-white font-display text-2xl">P</span>
             </div>
-            <h1 className="font-display text-2xl text-slate-900">Admin Login</h1>
+            <h1 className="font-display text-2xl text-slate-900">Panel Administracyjny</h1>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -93,7 +93,7 @@ export default function AdminPage() {
             )}
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">E-Mail</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
               <input
                 type="email"
                 value={loginEmail}
@@ -105,7 +105,7 @@ export default function AdminPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Passwort</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Hasło</label>
               <input
                 type="password"
                 value={loginPassword}
@@ -121,13 +121,13 @@ export default function AdminPage() {
               className="w-full btn-primary !py-3 disabled:opacity-50"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Wird angemeldet...' : 'Anmelden'}
+              {isSubmitting ? 'Logowanie...' : 'Zaloguj się'}
             </button>
           </form>
           
           <div className="mt-4">
             <a href="/" className="text-sm text-slate-500 hover:text-brand-600">
-              ← Zurück zur Startseite
+              ← Powrót do strony głównej
             </a>
           </div>
         </div>
@@ -158,6 +158,9 @@ export default function AdminPage() {
       priceFromTHB: property.priceFromTHB,
       priceFromEUR: property.priceFromEUR,
       highlightsText: (property.highlights || []).join('\n'),
+      highlightsPlText: (property.highlights_pl || []).join('\n'),
+      descriptionPl: property.description_pl || '',
+      operatorModelPl: property.operatorModel_pl || '',
       imagesText: (property.images || []).join('\n'),
       isPublished: property.isPublished,
       order: property.order,
@@ -167,7 +170,6 @@ export default function AdminPage() {
   };
 
   const computeNiceEUR = (thb: number) => {
-    // keep the value numeric; formatting happens in UI
     const eur = thbToEur(thb);
     if (eur >= 1_000_000) return Math.round((eur / 1_000_000) * 10) / 10 * 1_000_000;
     return eur >= 100_000 ? Math.round(eur / 1_000) * 1_000 : Math.round(eur / 500) * 500;
@@ -175,15 +177,21 @@ export default function AdminPage() {
 
   const handleSave = async () => {
     setFormError('');
-    if (!draft.projectName?.trim()) return setFormError('Projektname ist erforderlich');
-    if (!draft.area?.trim()) return setFormError('Lage/Area ist erforderlich');
-    if (!draft.priceFromTHB || draft.priceFromTHB <= 0) return setFormError('Preis (THB) ist erforderlich');
-    if (!draft.imagesText?.trim()) return setFormError('Mindestens 1 Bild-URL ist erforderlich');
+    if (!draft.projectName?.trim()) return setFormError('Nazwa projektu jest wymagana');
+    if (!draft.area?.trim()) return setFormError('Lokalizacja jest wymagana');
+    if (!draft.priceFromTHB || draft.priceFromTHB <= 0) return setFormError('Cena (THB) jest wymagana');
+    if (!draft.imagesText?.trim()) return setFormError('Wymagany jest przynajmniej 1 URL zdjęcia');
 
     const highlights = String(draft.highlightsText || '')
       .split('\n')
       .map((s: string) => s.trim())
       .filter(Boolean);
+    
+    const highlights_pl = String(draft.highlightsPlText || '')
+      .split('\n')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    
     const images = String(draft.imagesText || '')
       .split('\n')
       .map((s: string) => s.trim())
@@ -205,20 +213,15 @@ export default function AdminPage() {
       priceFromTHB,
       priceFromEUR,
       highlights,
+      highlights_pl: highlights_pl.length > 0 ? highlights_pl : null,
+      description_pl: draft.descriptionPl?.trim() || null,
+      operatorModel_pl: draft.operatorModelPl?.trim() || null,
       docs: [],
       images,
       operatorModel: null,
-      
-      // БЫЛО: transparency: undefined,
-      // СТАЛО:
       transparency: null, 
-
       description: '',
-      
-      // БЫЛО: location: undefined,
-      // СТАЛО:
       location: null,
-
       isPublished: Boolean(draft.isPublished),
       order: Number(draft.order || 0),
     };
@@ -233,7 +236,7 @@ export default function AdminPage() {
       setIsEditorOpen(false);
     } catch (err: any) {
       console.error('Save error:', err);
-      setFormError(`Fehler beim Speichern: ${err.message || 'Unbekannter Fehler'}. Bitte Firestore-Regeln prüfen.`);
+      setFormError(`Błąd podczas zapisywania: ${err.message || 'Nieznany błąd'}. Sprawdź reguły Firestore.`);
     } finally {
       setIsSaving(false);
     }
@@ -244,7 +247,7 @@ export default function AdminPage() {
   };
   
   const handleDelete = async (id: string) => {
-    if (confirm('Objekt wirklich löschen?')) {
+    if (confirm('Czy na pewno chcesz usunąć ten obiekt?')) {
       await deleteProperty(id);
     }
   };
@@ -258,12 +261,12 @@ export default function AdminPage() {
               <span className="text-white font-display text-lg">P</span>
             </div>
             <div>
-              <h1 className="font-display text-xl text-slate-900">Admin Dashboard</h1>
+              <h1 className="font-display text-xl text-slate-900">Panel Administracyjny</h1>
               <p className="text-sm text-slate-500">{user.email}</p>
             </div>
           </div>
           <button onClick={logout} className="btn-secondary !py-2">
-            <LogOut className="w-4 h-4" /> Abmelden
+            <LogOut className="w-4 h-4" /> Wyloguj
           </button>
         </div>
       </header>
@@ -274,22 +277,22 @@ export default function AdminPage() {
             onClick={() => setActiveTab('properties')}
             className={`px-4 py-2 rounded-lg font-medium ${activeTab === 'properties' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'}`}
           >
-            <Settings className="w-4 h-4 inline mr-2" />Objekte ({properties.length})
+            <Settings className="w-4 h-4 inline mr-2" />Obiekty ({properties.length})
           </button>
           <button
             onClick={() => setActiveTab('leads')}
             className={`px-4 py-2 rounded-lg font-medium ${activeTab === 'leads' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'}`}
           >
-            <Users className="w-4 h-4 inline mr-2" />Leads ({leadsCount})
+            <Users className="w-4 h-4 inline mr-2" />Kontakty ({leadsCount})
           </button>
         </div>
 
         {activeTab === 'properties' && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="font-display text-lg">Objektverwaltung</h2>
+              <h2 className="font-display text-lg">Zarządzanie obiektami</h2>
               <button onClick={openCreate} className="btn-primary !py-2">
-                <Plus className="w-4 h-4" /> Neues Objekt
+                <Plus className="w-4 h-4" /> Nowy obiekt
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -297,11 +300,11 @@ export default function AdminPage() {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Projekt</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Lage</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Kategorie</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Preis ab</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Lokalizacja</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Kategoria</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Cena od</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Status</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">Aktionen</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">Akcje</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -312,7 +315,7 @@ export default function AdminPage() {
                           <img src={property.images[0]} alt="" className="w-12 h-12 rounded-lg object-cover" />
                           <div>
                             <div className="font-medium text-slate-900">{property.projectName}</div>
-                            <div className="text-sm text-slate-500">{property.propertyType}</div>
+                            <div className="text-sm text-slate-500">{property.propertyType === 'CONDO' ? 'Apartament' : 'Willa'}</div>
                           </div>
                         </div>
                       </td>
@@ -331,14 +334,14 @@ export default function AdminPage() {
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${property.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
                         >
                           {property.isPublished ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                          {property.isPublished ? 'Veröffentlicht' : 'Entwurf'}
+                          {property.isPublished ? 'Opublikowany' : 'Szkic'}
                         </button>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => openEdit(property)} className="p-2 text-slate-600 hover:bg-slate-100 rounded mr-1" title="Bearbeiten">
+                        <button onClick={() => openEdit(property)} className="p-2 text-slate-600 hover:bg-slate-100 rounded mr-1" title="Edytuj">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(property.id)} className="p-2 text-red-500 hover:bg-red-50 rounded">
+                        <button onClick={() => handleDelete(property.id)} className="p-2 text-red-500 hover:bg-red-50 rounded" title="Usuń">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
@@ -353,19 +356,19 @@ export default function AdminPage() {
         {activeTab === 'leads' && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b">
-              <h2 className="font-display text-lg">Lead-Übersicht</h2>
+              <h2 className="font-display text-lg">Lista kontaktów</h2>
             </div>
             {leads.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">Noch keine Leads vorhanden.</div>
+              <div className="p-8 text-center text-slate-500">Brak kontaktów.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Name</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Imię i nazwisko</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Kontakt</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Budget</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Datum</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Budżet</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Data</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -378,7 +381,7 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-600">{lead.budget || '-'}</td>
                         <td className="px-4 py-3 text-sm text-slate-500">
-                          {new Date(lead.createdAt).toLocaleDateString('de-DE')}
+                          {new Date(lead.createdAt).toLocaleDateString('pl-PL')}
                         </td>
                       </tr>
                     ))}
@@ -398,11 +401,11 @@ export default function AdminPage() {
               <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
                 <div>
                   <div className="font-display text-lg text-slate-900">
-                    {editing ? 'Objekt bearbeiten' : 'Neues Objekt'}
+                    {editing ? 'Edytuj obiekt' : 'Nowy obiekt'}
                   </div>
-                  <div className="text-sm text-slate-500">Pflichtfelder: Projekt, Lage, Preis (THB), Bilder</div>
+                  <div className="text-sm text-slate-500">Pola wymagane: Projekt, Lokalizacja, Cena (THB), Zdjęcia</div>
                 </div>
-                <button onClick={() => setIsEditorOpen(false)} className="btn-secondary !py-2">Schließen</button>
+                <button onClick={() => setIsEditorOpen(false)} className="btn-secondary !py-2">Zamknij</button>
               </div>
 
               {/* Scrollable Content */}
@@ -415,76 +418,131 @@ export default function AdminPage() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Projektname</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nazwa projektu</label>
                     <input className="input-field" value={draft.projectName} onChange={(e) => setDraft({ ...draft, projectName: e.target.value })} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Lage / Area</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Lokalizacja</label>
                     <input className="input-field" value={draft.area} onChange={(e) => setDraft({ ...draft, area: e.target.value })} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Kategorie</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Kategoria</label>
                     <select className="input-field" value={draft.statusCategory} onChange={(e) => setDraft({ ...draft, statusCategory: e.target.value })}>
-                      <option value="READY">Sofort verfügbar</option>
-                      <option value="2026">Fertigstellung 2026</option>
-                      <option value="2027">Fertigstellung 2027</option>
+                      <option value="READY">Dostępne od zaraz</option>
+                      <option value="2026">Oddanie 2026</option>
+                      <option value="2027">Oddanie 2027</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Objekttyp</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Typ obiektu</label>
                     <select className="input-field" value={draft.propertyType} onChange={(e) => setDraft({ ...draft, propertyType: e.target.value })}>
-                      <option value="CONDO">Condo</option>
-                      <option value="VILLA">Villa</option>
+                      <option value="CONDO">Apartament</option>
+                      <option value="VILLA">Willa</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Ownership (Juristisch)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Forma własności</label>
                     <select className="input-field" value={draft.ownership} onChange={(e) => setDraft({ ...draft, ownership: e.target.value })}>
-                      <option value="LEASEHOLD">Leasehold</option>
-                      <option value="FREEHOLD">Freehold</option>
-                      <option value="MIXED">Mixed</option>
+                      <option value="LEASEHOLD">Leasehold (dzierżawa)</option>
+                      <option value="FREEHOLD">Freehold (własność)</option>
+                      <option value="MIXED">Mieszana</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Fertigstellung (YYYY-MM, optional)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Oddanie (RRRR-MM, opcjonalnie)</label>
                     <input className="input-field" value={draft.completion || ''} placeholder="2026-12" onChange={(e) => setDraft({ ...draft, completion: e.target.value || null })} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Größe von (m²)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Powierzchnia od (m²)</label>
                     <input type="number" className="input-field" value={draft.sizeSqmFrom} onChange={(e) => setDraft({ ...draft, sizeSqmFrom: e.target.value })} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Größe bis (m²)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Powierzchnia do (m²)</label>
                     <input type="number" className="input-field" value={draft.sizeSqmTo} onChange={(e) => setDraft({ ...draft, sizeSqmTo: e.target.value })} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Preis ab (THB)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cena od (THB)</label>
                     <input type="number" className="input-field" value={draft.priceFromTHB} onChange={(e) => setDraft({ ...draft, priceFromTHB: e.target.value, priceFromEUR: computeNiceEUR(Number(e.target.value || 0)) })} />
-                    <div className="text-xs text-slate-500 mt-1">EUR-Anzeige wird automatisch berechnet (Referenzkurs 01.01.2026)</div>
+                    <div className="text-xs text-slate-500 mt-1">Cena EUR obliczana automatycznie (kurs referencyjny 01.01.2026)</div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Preis ab (EUR, indikativ)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cena od (EUR, orientacyjna)</label>
                     <input className="input-field" value={formatCurrency(Number(draft.priceFromEUR || 0))} readOnly />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Bilder (1 URL pro Zeile)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Zdjęcia (1 URL na linię)</label>
                     <textarea className="input-field min-h-[96px]" value={draft.imagesText} onChange={(e) => setDraft({ ...draft, imagesText: e.target.value })} />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Highlights (1 Punkt pro Zeile, optional)</label>
-                    <textarea className="input-field min-h-[96px]" value={draft.highlightsText} onChange={(e) => setDraft({ ...draft, highlightsText: e.target.value })} />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Wyróżniki EN (1 punkt na linię, opcjonalnie)</label>
+                    <textarea 
+                      className="input-field min-h-[96px]" 
+                      value={draft.highlightsText} 
+                      onChange={(e) => setDraft({ ...draft, highlightsText: e.target.value })}
+                      placeholder="Central Karon location, walk to beach&#10;Villa Market supermarket in complex&#10;..."
+                    />
+                    <div className="text-xs text-slate-500 mt-1">Oryginalne wyróżniki (angielski) - używane jako fallback</div>
                   </div>
+
+                  {/* Polish translations section */}
+                  <div className="md:col-span-2 border-t border-slate-200 pt-4 mt-2">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-lg">🇵🇱</span>
+                      <h4 className="font-medium text-slate-900">Polskie tłumaczenia</h4>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Wyróżniki PL (1 punkt na linię)
+                    </label>
+                    <textarea 
+                      className="input-field min-h-[96px]" 
+                      value={draft.highlightsPlText} 
+                      onChange={(e) => setDraft({ ...draft, highlightsPlText: e.target.value })}
+                      placeholder="Centrum Karon, spacer do plaży&#10;Supermarket Villa Market w kompleksie&#10;Symulator golfa i korty tenisowe&#10;..."
+                    />
+                    <div className="text-xs text-slate-500 mt-1">
+                      Jeśli puste, wyświetlone zostaną oryginalne wyróżniki (EN)
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Opis PL
+                    </label>
+                    <textarea 
+                      className="input-field min-h-[72px]" 
+                      value={draft.descriptionPl} 
+                      onChange={(e) => setDraft({ ...draft, descriptionPl: e.target.value })}
+                      placeholder="Opis projektu po polsku..."
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Model operatorski PL
+                    </label>
+                    <input 
+                      className="input-field" 
+                      value={draft.operatorModelPl} 
+                      onChange={(e) => setDraft({ ...draft, operatorModelPl: e.target.value })}
+                      placeholder="Profesjonalny operator hotelowy z opcją puli najmu"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 border-t border-slate-200 pt-4 mt-2"></div>
 
                   <div className="md:col-span-2 flex items-center gap-2">
                     <input 
@@ -495,7 +553,7 @@ export default function AdminPage() {
                       className="w-4 h-4 text-brand-600 rounded"
                     />
                     <label htmlFor="isPublished" className="text-sm text-slate-700">
-                      Veröffentlicht (auf der Website sichtbar)
+                      Opublikowany (widoczny na stronie)
                     </label>
                   </div>
                 </div>
@@ -505,10 +563,10 @@ export default function AdminPage() {
               <div className="p-4 border-t bg-slate-50 flex-shrink-0">
                 <div className="flex gap-3 justify-end">
                   <button onClick={() => setIsEditorOpen(false)} className="btn-secondary" disabled={isSaving}>
-                    Abbrechen
+                    Anuluj
                   </button>
                   <button onClick={handleSave} className="btn-primary" disabled={isSaving}>
-                    {isSaving ? 'Speichern...' : 'Speichern'}
+                    {isSaving ? 'Zapisywanie...' : 'Zapisz'}
                   </button>
                 </div>
               </div>

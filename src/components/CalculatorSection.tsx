@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Calculator, TrendingUp, Percent, Calendar } from 'lucide-react';
-import { formatPercent } from '../utils/format';
+import { formatCurrency, formatPercent } from '../utils/format';
 import { useAnalytics } from '../hooks/useAnalytics';
 
 interface CalculatorInputs {

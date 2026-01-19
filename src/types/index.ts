@@ -38,6 +38,10 @@ export interface Property {
   ownership: OwnershipType;
   completion: string | null; // YYYY-MM format or null
   highlights: string[];
+  // Multilingual fields - Polish translations
+  highlights_pl?: string[];
+  description_pl?: string;
+  operatorModel_pl?: string;
   transparency?: TransparencyInfo;
   operatorModel: string | null;
   docs: Document[];

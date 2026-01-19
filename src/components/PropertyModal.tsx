@@ -196,18 +196,23 @@ export default function PropertyModal({ property, onClose }: PropertyModalProps)
               </div>
 
               {/* Description */}
-              {property.description && (
+              {(property.description_pl || property.description) && (
                 <div className="mb-6 sm:mb-8">
                   <h3 className="font-display text-base sm:text-lg text-slate-900 mb-2 sm:mb-3">Opis</h3>
-                  <p className="text-slate-600 text-sm sm:text-base leading-relaxed">{property.description}</p>
+                  <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                    {property.description_pl || property.description}
+                  </p>
                 </div>
               )}
 
-              {/* Highlights */}
+              {/* Highlights - use Polish version if available */}
               <div className="mb-6 sm:mb-8">
                 <h3 className="font-display text-base sm:text-lg text-slate-900 mb-2 sm:mb-3">Wyróżniki</h3>
                 <ul className="grid sm:grid-cols-2 gap-2 sm:gap-3">
-                  {property.highlights.map((highlight, index) => (
+                  {(property.highlights_pl && property.highlights_pl.length > 0 
+                    ? property.highlights_pl 
+                    : property.highlights
+                  ).map((highlight, index) => (
                     <li key={index} className="flex items-start gap-2 sm:gap-3">
                       <div className="w-5 h-5 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <Check className="w-3 h-3 text-brand-600" />
@@ -258,11 +263,13 @@ export default function PropertyModal({ property, onClose }: PropertyModalProps)
                 </div>
               )}
 
-              {/* Operator Model */}
-              {property.operatorModel && (
+              {/* Operator Model - use Polish version if available */}
+              {(property.operatorModel_pl || property.operatorModel) && (
                 <div className="mb-6 sm:mb-8">
                   <h3 className="font-display text-base sm:text-lg text-slate-900 mb-2 sm:mb-3">Model operatorski</h3>
-                  <p className="text-slate-600 text-sm sm:text-base">{property.operatorModel}</p>
+                  <p className="text-slate-600 text-sm sm:text-base">
+                    {property.operatorModel_pl || property.operatorModel}
+                  </p>
                 </div>
               )}
 

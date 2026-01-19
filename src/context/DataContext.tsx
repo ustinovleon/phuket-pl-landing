@@ -78,6 +78,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ownership: data.ownership,
       completion: data.completion ?? null,
       highlights: data.highlights || [],
+      // Multilingual fields - Polish translations
+      highlights_pl: data.highlights_pl || undefined,
+      description_pl: data.description_pl || undefined,
+      operatorModel_pl: data.operatorModel_pl || undefined,
       transparency: data.transparency,
       operatorModel: data.operatorModel ?? null,
       docs: data.docs || [],
